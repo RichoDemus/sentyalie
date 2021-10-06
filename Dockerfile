@@ -39,9 +39,9 @@ COPY --from=builder /etc/group /etc/group
 WORKDIR /app
 
 # Copy our build
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/discord-game-notifier ./
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/sentyalie ./
 
 # Use an unprivileged user.
 USER appuser:appuser
 
-CMD ["/app/discord-game-notifier"]
+CMD ["/app/sentyalie"]
