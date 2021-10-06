@@ -14,15 +14,19 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
       - name: docker build
-        run: docker build -t richodemus/sentyalie .
+        run: docker build -t ${{ secrets.DOCKER_IMAGE }} .
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@master
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
+      - name: Configure docker for GCR
+        run: gcloud auth configure-docker
       - name: Push to GCR
-        run: gcloud info
+        run: docker push ${{ secrets.DOCKER_IMAGE }}
+
+
 
 #      - name: Push to Docker Hub
 #        uses: docker/build-push-action@v1
