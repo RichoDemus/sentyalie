@@ -20,13 +20,6 @@ pub(crate) struct Game {
     platform: Platform,
 }
 
-// fn main() {
-//     // let free_games = epic_client::get_free_games();
-//     // println!("{:?}", free_games);
-//     // discord::post_free_games_message(free_games);
-//     println!("Hello world!");
-// }
-
 use warp::{Filter, Rejection};
 use std::sync::{Arc, Mutex};
 use std::env;
