@@ -1,3 +1,4 @@
+# Sentyalië
 
 ## Running
 Set envs `DISCORD_TOKEN` and `DISCORD_CHANNEL` start and curl /run (or /get to just test)
