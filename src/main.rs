@@ -39,10 +39,7 @@ async fn main() {
     let test_token = token;
 
     let (tx, rx) = tokio::sync::oneshot::channel();
-    let get_shutdown_hook = Arc::new(Mutex::new(Some(tx)));
-    let run_shutdown_hook = get_shutdown_hook.clone();
-    let test_shutdown_hook = get_shutdown_hook.clone();
-    let shutdown_hook = run_shutdown_hook.clone();
+    let shutdown_hook = Arc::new(Mutex::new(Some(tx)));
 
     let ping = warp::path!("ping")
         .map(||{
@@ -54,15 +51,11 @@ async fn main() {
         .and_then(move || {
             let token = run_token.clone();
             let channel_id = channel_id.clone();
-            let tx = run_shutdown_hook.clone();
             async move {
                 info!("run");
                 let free_games = epic_client::get_free_games().await;
                 info!("free games: {:?}", free_games);
                 discord::post_free_games_message(free_games, &token, &channel_id).await;
-                if let Some(tx) = tx.lock().unwrap().take() {
-                    tx.send(());
-                }
                 Ok::<_,Rejection>(warp::reply())
             }
         });
@@ -71,30 +64,22 @@ async fn main() {
         .and_then(move || {
             let token = test_token.clone();
             let user_id = user_id.clone();
-            let tx = test_shutdown_hook.clone();
             async move {
                 info!("run");
                 let free_games = epic_client::get_free_games().await;
                 info!("free games: {:?}", free_games);
                 discord::post_free_games_direct_message(free_games, &token, &user_id).await;
-                if let Some(tx) = tx.lock().unwrap().take() {
-                    tx.send(());
-                }
                 Ok::<_,Rejection>(warp::reply())
             }
         });
 
     let get = warp::path!("get")
         .and_then(move|| {
-            let tx = get_shutdown_hook.clone();
             async move {
                 info!("get");
                 let free_games = epic_client::get_free_games().await;
                 info!("free games: {:?}", free_games);
                 let free_games = serde_json::to_string(&free_games).expect("should work");
-                if let Some(tx) = tx.clone().lock().unwrap().take() {
-                    tx.send(());
-                }
                 Ok::<_,Rejection>(free_games)
             }
         });
