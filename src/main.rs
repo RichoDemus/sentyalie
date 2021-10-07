@@ -26,7 +26,7 @@ use std::env;
 
 #[tokio::main]
 async fn main() {
-    let (token, channel_id) = read_env();
+    let (token, channel_id, user_id) = read_env();
     env_logger::builder()
         .filter_module("sentyalie", LevelFilter::Info)
         .init();
@@ -34,9 +34,14 @@ async fn main() {
     info!("token: {}, id: {}", token, channel_id);
     info!("Starting..");
 
+    // todo figure all this out
+    let run_token = token.clone();
+    let test_token = token;
+
     let (tx, rx) = tokio::sync::oneshot::channel();
     let get_shutdown_hook = Arc::new(Mutex::new(Some(tx)));
     let run_shutdown_hook = get_shutdown_hook.clone();
+    let test_shutdown_hook = get_shutdown_hook.clone();
     let shutdown_hook = run_shutdown_hook.clone();
 
     let ping = warp::path!("ping")
@@ -47,7 +52,7 @@ async fn main() {
 
     let run = warp::path!("run")
         .and_then(move || {
-            let token = token.clone();
+            let token = run_token.clone();
             let channel_id = channel_id.clone();
             let tx = run_shutdown_hook.clone();
             async move {
@@ -55,6 +60,23 @@ async fn main() {
                 let free_games = epic_client::get_free_games().await;
                 info!("free games: {:?}", free_games);
                 discord::post_free_games_message(free_games, &token, &channel_id).await;
+                if let Some(tx) = tx.lock().unwrap().take() {
+                    tx.send(());
+                }
+                Ok::<_,Rejection>(warp::reply())
+            }
+        });
+
+    let test = warp::path!("test")
+        .and_then(move || {
+            let token = test_token.clone();
+            let user_id = user_id.clone();
+            let tx = test_shutdown_hook.clone();
+            async move {
+                info!("run");
+                let free_games = epic_client::get_free_games().await;
+                info!("free games: {:?}", free_games);
+                discord::post_free_games_direct_message(free_games, &token, &user_id).await;
                 if let Some(tx) = tx.lock().unwrap().take() {
                     tx.send(());
                 }
@@ -86,7 +108,7 @@ async fn main() {
             warp::reply()
         });
 
-    let routes = ping.or(run).or(get).or(shutdown);
+    let routes = ping.or(run).or(get).or(test).or(shutdown);
     let (addr, server) = warp::serve(routes)
         .bind_with_graceful_shutdown(([0, 0, 0, 0], 8080), async {
             rx.await.ok();
@@ -95,9 +117,9 @@ async fn main() {
     server.await;
 }
 
-fn read_env() -> (String, String) {
-    match (env::var("DISCORD_TOKEN"), env::var("DISCORD_CHANNEL")) {
-        (Ok(token), Ok(channel)) => (token, channel),
+fn read_env() -> (String, String, String) {
+    match (env::var("DISCORD_TOKEN"), env::var("DISCORD_CHANNEL"), env::var("DISCORD_TEST_USER")) {
+        (Ok(token), Ok(channel), Ok(user)) => (token, channel, user),
         _ => panic!("Missing env"),
     }
 }

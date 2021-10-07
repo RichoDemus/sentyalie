@@ -15,6 +15,11 @@ struct Channel {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct DmChannel {
+    id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct Message {
     content: String,
 }
@@ -30,6 +35,40 @@ pub(crate) async fn post_free_games_message(games: Vec<Game>, token: &str, chann
 
     let client = reqwest::Client::default();
     let _res = client.post(format!("https://discordapp.com/api/channels/{channel_id}/messages", channel_id=channel_id))
+        .header("Authorization", format!("Bot {}", token))
+        .header("Content-Type", "application/json")
+        .body(serde_json::to_string(&body).unwrap())
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+}
+
+pub(crate) async fn post_free_games_direct_message(games: Vec<Game>, token: &str, user_id: &str) {
+    let games = games.into_iter()
+        .map(|game|game.title)
+        .collect::<Vec<String>>()
+        .join(", ");
+    let body = Message {
+        content: format!("Free games this week: {}", games),
+    };
+
+    let client = reqwest::Client::default();
+
+    let dm_channel:DmChannel = client.post("https://discordapp.com/api/users/@me/channels")
+        .header("Authorization", format!("Bot {}", token))
+        .header("Content-Type", "application/json")
+        .body(r#"{"recipient_id":"104179279658508288"}"#)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    let _res = client.post(format!("https://discordapp.com/api/channels/{channel_id}/messages", channel_id=dm_channel.id))
         .header("Authorization", format!("Bot {}", token))
         .header("Content-Type", "application/json")
         .body(serde_json::to_string(&body).unwrap())
@@ -80,6 +119,31 @@ mod tests {
         let channel_id = "";
         let client = reqwest::blocking::Client::default();
         let guilds = client.post(format!("https://discordapp.com/api/channels/{channel_id}/messages", channel_id=channel_id))
+            .header("Authorization", format!("Bot {}", token))
+            .header("Content-Type", "application/json")
+            .body(r#"{"content":"hello world"}"#)
+            .send()
+            .unwrap()
+            .text()
+            .unwrap();
+    }
+
+    //#[test]
+    fn send_private_message() {
+        let token = "";
+        let client = reqwest::blocking::Client::default();
+        let dm_channel:DmChannel = client.post("https://discordapp.com/api/users/@me/channels")
+            .header("Authorization", format!("Bot {}", token))
+            .header("Content-Type", "application/json")
+            .body(r#"{"recipient_id":""}"#)
+            .send()
+            .unwrap()
+            .json()
+            .unwrap();
+
+        println!("channel: {:?}", dm_channel);
+
+        let _response = client.post(format!("https://discordapp.com/api/channels/{channel_id}/messages", channel_id=dm_channel.id))
             .header("Authorization", format!("Bot {}", token))
             .header("Content-Type", "application/json")
             .body(r#"{"content":"hello world"}"#)
