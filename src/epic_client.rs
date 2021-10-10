@@ -17,7 +17,7 @@ pub(crate) async fn get_free_games(base_url: &str, now: &DateTime<Utc>) -> Vec<G
 fn parse_and_filter(json: &str, now: &DateTime<Utc>) -> Vec<Game> {
     let response: Response = serde_json::from_str(json).unwrap();
 
-    let current = response
+    response
         .data
         .catalog
         .search_store
@@ -35,10 +35,6 @@ fn parse_and_filter(json: &str, now: &DateTime<Utc>) -> Vec<Game> {
                         && promotion.discount_setting.discount_percentage == 0
                 }),
         })
-        .collect::<Vec<_>>();
-
-    current
-        .into_iter()
         .map(|element| Game {
             title: element.title.clone(),
             platform: Platform::Epic,

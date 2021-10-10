@@ -75,7 +75,7 @@ fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output = ()>, u16) {
     info!("Config {:?}", config);
     info!("Starting..");
 
-    let config: &'static Config = Box::leak(Box::new(config.clone()));
+    let config: &'static Config = Box::leak(Box::new(config));
     let now: &'static DateTime<Utc> = Box::leak(Box::new(now));
 
     let (tx, rx) = tokio::sync::oneshot::channel();
