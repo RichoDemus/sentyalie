@@ -1,8 +1,14 @@
-use log::{debug, error, log_enabled, info, Level, LevelFilter};
-use serde::{Deserialize, Serialize};
+use std::env;
+use std::future::Future;
+use std::sync::{Arc, Mutex};
 
-mod epic_client;
+use chrono::{DateTime, Utc};
+use log::{info, LevelFilter};
+use serde::Serialize;
+use warp::{Filter, Rejection};
+
 mod discord;
+mod epic_client;
 #[cfg(test)]
 mod test;
 
@@ -13,7 +19,8 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 #[derive(Eq, PartialEq, Debug, Serialize)]
 pub(crate) enum Platform {
-    Epic, _Steam
+    Epic,
+    _Steam,
 }
 
 #[derive(Eq, PartialEq, Debug, Serialize)]
@@ -40,16 +47,10 @@ impl Default for Config {
             channel_id: "".to_string(),
             user_id: "".to_string(),
             epic_base_url: "https://store-site-backend-static.ak.epicgames.com".to_string(),
-            discord_base_url: "https://discordapp.com".to_string()
+            discord_base_url: "https://discordapp.com".to_string(),
         }
     }
 }
-
-use warp::{Filter, Rejection};
-use std::sync::{Arc, Mutex};
-use std::env;
-use chrono::{Utc, DateTime};
-use std::future::Future;
 
 #[tokio::main]
 async fn main() {
@@ -58,17 +59,19 @@ async fn main() {
         .filter_module("sentyalie", LevelFilter::Info)
         .init();
 
-    let (server, _) = run(Config {
-        token,
-        channel_id,
-        user_id,
-        ..Default::default()
-    },
-        Utc::now());
+    let (server, _) = run(
+        Config {
+            token,
+            channel_id,
+            user_id,
+            ..Default::default()
+        },
+        Utc::now(),
+    );
     server.await;
 }
 
-fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output=()>, u16) {
+fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output = ()>, u16) {
     info!("Config {:?}", config);
     info!("Starting..");
 
@@ -85,77 +88,84 @@ fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output=()>, u16) {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let shutdown_hook = Arc::new(Mutex::new(Some(tx)));
 
-    let ping = warp::path!("ping")
-        .map(||{
-            info!("ping");
-            "pong"
-        });
+    let ping = warp::path!("ping").map(|| {
+        info!("ping");
+        "pong"
+    });
 
     let epic_base_url_clone = epic_base_url.clone();
     let discord_base_url_clone = discord_base_url.clone();
     let now_clone = now.clone();
-    let run = warp::path!("run")
-        .and_then(move || {
-            let token = run_token.clone();
-            let channel_id = channel_id.clone();
-            let epic_base_url = epic_base_url_clone.clone();
-            let discord_base_url_clone = discord_base_url_clone.clone();
-            let now_clone = now_clone.clone();
-            async move {
-                info!("run");
-                let free_games = epic_client::get_free_games(&epic_base_url, *now_clone).await;
-                info!("free games: {:?}", free_games);
-                discord::post_free_games_message(&discord_base_url_clone, free_games, &token, &channel_id).await;
-                Ok::<_,Rejection>(warp::reply())
-            }
-        });
+    let run = warp::path!("run").and_then(move || {
+        let token = run_token.clone();
+        let channel_id = channel_id.clone();
+        let epic_base_url = epic_base_url_clone.clone();
+        let discord_base_url_clone = discord_base_url_clone.clone();
+        let now_clone = now_clone.clone();
+        async move {
+            info!("run");
+            let free_games = epic_client::get_free_games(&epic_base_url, *now_clone).await;
+            info!("free games: {:?}", free_games);
+            discord::post_free_games_message(
+                &discord_base_url_clone,
+                free_games,
+                &token,
+                &channel_id,
+            )
+            .await;
+            Ok::<_, Rejection>(warp::reply())
+        }
+    });
 
     let epic_base_url_clone = epic_base_url.clone();
     let discord_base_url_clone = discord_base_url.clone();
     let now_clone = now.clone();
-    let test = warp::path!("test")
-        .and_then(move || {
-            let token = test_token.clone();
-            let user_id = user_id.clone();
-            let epic_base_url = epic_base_url_clone.clone();
-            let discord_base_url_clone = discord_base_url_clone.clone();
-            let now_clone = now_clone.clone();
-            async move {
-                info!("run");
-                let free_games = epic_client::get_free_games(&epic_base_url, *now_clone).await;
-                info!("free games: {:?}", free_games);
-                discord::post_free_games_direct_message(&discord_base_url_clone, free_games, &token, &user_id).await;
-                Ok::<_,Rejection>(warp::reply())
-            }
-        });
+    let test = warp::path!("test").and_then(move || {
+        let token = test_token.clone();
+        let user_id = user_id.clone();
+        let epic_base_url = epic_base_url_clone.clone();
+        let discord_base_url_clone = discord_base_url_clone.clone();
+        let now_clone = now_clone.clone();
+        async move {
+            info!("run");
+            let free_games = epic_client::get_free_games(&epic_base_url, *now_clone).await;
+            info!("free games: {:?}", free_games);
+            discord::post_free_games_direct_message(
+                &discord_base_url_clone,
+                free_games,
+                &token,
+                &user_id,
+            )
+            .await;
+            Ok::<_, Rejection>(warp::reply())
+        }
+    });
 
     let epic_base_url_clone = epic_base_url.clone();
     let now_clone = now.clone();
-    let get = warp::path!("get")
-        .and_then(move|| {
-            let epic_base_url = epic_base_url_clone.clone();
-            let now_clone = now_clone.clone();
-            async move {
-                info!("get");
-                let free_games = epic_client::get_free_games(&epic_base_url, *now_clone).await;
-                info!("free games: {:?}", free_games);
-                let free_games = serde_json::to_string(&free_games).expect("should work");
-                Ok::<_,Rejection>(free_games)
-            }
-        });
+    let get = warp::path!("get").and_then(move || {
+        let epic_base_url = epic_base_url_clone.clone();
+        let now_clone = now_clone.clone();
+        async move {
+            info!("get");
+            let free_games = epic_client::get_free_games(&epic_base_url, *now_clone).await;
+            info!("free games: {:?}", free_games);
+            let free_games = serde_json::to_string(&free_games).expect("should work");
+            Ok::<_, Rejection>(free_games)
+        }
+    });
 
-    let shutdown = warp::path!("shutdown")
-        .map(move || {
-            info!("shutdown");
-            if let Some(tx) = shutdown_hook.clone().lock().unwrap().take() {
-                tx.send(());
-            }
-            warp::reply()
-        });
+    let shutdown = warp::path!("shutdown").map(move || {
+        info!("shutdown");
+        if let Some(tx) = shutdown_hook.clone().lock().unwrap().take() {
+            tx.send(()).unwrap();
+        }
+        warp::reply()
+    });
 
     let routes = ping.or(run).or(get).or(test).or(shutdown);
-    let (addr, server) = warp::serve(routes)
-        .bind_with_graceful_shutdown(([0, 0, 0, 0], config.port), async {
+    let (addr, server) =
+        warp::serve(routes).bind_with_graceful_shutdown(([0, 0, 0, 0], config.port), async {
             rx.await.ok();
         });
 
@@ -163,19 +173,12 @@ fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output=()>, u16) {
 }
 
 fn read_env() -> (String, String, String) {
-    match (env::var("DISCORD_TOKEN"), env::var("DISCORD_CHANNEL"), env::var("DISCORD_TEST_USER")) {
+    match (
+        env::var("DISCORD_TOKEN"),
+        env::var("DISCORD_CHANNEL"),
+        env::var("DISCORD_TEST_USER"),
+    ) {
         (Ok(token), Ok(channel), Ok(user)) => (token, channel, user),
         _ => panic!("Missing env"),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    #[test]
-    fn asd() {
-
     }
 }

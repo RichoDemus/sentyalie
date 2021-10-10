@@ -1,7 +1,8 @@
-use crate::{Game, Platform};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use reqwest::get;
+use serde::{Deserialize, Serialize};
+
+use crate::{Game, Platform};
 
 pub(crate) async fn get_free_games(base_url: &str, now: DateTime<Utc>) -> Vec<Game> {
     let response = get(format!("{}/freeGamesPromotions", base_url))
@@ -16,25 +17,32 @@ pub(crate) async fn get_free_games(base_url: &str, now: DateTime<Utc>) -> Vec<Ga
 fn parse_and_filter(json: &str, now: DateTime<Utc>) -> Vec<Game> {
     let response: Response = serde_json::from_str(json).unwrap();
 
-    let current = response.data.catalog.search_store.elements.iter()
-        .filter(|game|{
-            match &game.promotions {
-                None => false,
-                Some(promotions) => {
-                    promotions.promotional_offers.iter()
-                        .flat_map(|offers|&offers.promotional_offers)
-                        .any(|promotion| {
-                            promotion.start_date < now
-                                && now < promotion.end_date
-                                && promotion.discount_setting.discount_percentage == 0
-                        })
-                }
-            }
+    let current = response
+        .data
+        .catalog
+        .search_store
+        .elements
+        .iter()
+        .filter(|game| match &game.promotions {
+            None => false,
+            Some(promotions) => promotions
+                .promotional_offers
+                .iter()
+                .flat_map(|offers| &offers.promotional_offers)
+                .any(|promotion| {
+                    promotion.start_date < now
+                        && now < promotion.end_date
+                        && promotion.discount_setting.discount_percentage == 0
+                }),
         })
         .collect::<Vec<_>>();
 
-    current.into_iter()
-        .map(|element|Game{ title: element.title.clone(), platform: Platform::Epic })
+    current
+        .into_iter()
+        .map(|element| Game {
+            title: element.title.clone(),
+            platform: Platform::Epic,
+        })
         .collect::<Vec<_>>()
 }
 
@@ -98,23 +106,31 @@ struct DiscountSetting {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::Platform;
     use chrono::TimeZone;
+
+    use crate::Platform;
+
+    use super::*;
 
     #[test]
     fn parse_and_filter_epic() {
-        let result = parse_and_filter(include_str!("epic_response.json"), Utc.timestamp(1631467068, 0));
+        let result = parse_and_filter(
+            include_str!("epic_response.json"),
+            Utc.timestamp(1631467068, 0),
+        );
 
-        assert_eq!(result, vec![
-           Game {
-               title: "Sheltered".to_string(),
-               platform: Platform::Epic
-           },
-           Game {
-               title: "Nioh: The Complete Edition".to_string(),
-               platform: Platform::Epic
-           },
-        ]);
+        assert_eq!(
+            result,
+            vec![
+                Game {
+                    title: "Sheltered".to_string(),
+                    platform: Platform::Epic,
+                },
+                Game {
+                    title: "Nioh: The Complete Edition".to_string(),
+                    platform: Platform::Epic,
+                },
+            ]
+        );
     }
 }
