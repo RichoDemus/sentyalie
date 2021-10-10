@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Game, Platform};
 
-pub(crate) async fn get_free_games(base_url: &str, now: DateTime<Utc>) -> Vec<Game> {
+pub(crate) async fn get_free_games(base_url: &str, now: &DateTime<Utc>) -> Vec<Game> {
     let response = get(format!("{}/freeGamesPromotions", base_url))
         .await
         .unwrap()
@@ -14,7 +14,7 @@ pub(crate) async fn get_free_games(base_url: &str, now: DateTime<Utc>) -> Vec<Ga
     parse_and_filter(response.as_str(), now)
 }
 
-fn parse_and_filter(json: &str, now: DateTime<Utc>) -> Vec<Game> {
+fn parse_and_filter(json: &str, now: &DateTime<Utc>) -> Vec<Game> {
     let response: Response = serde_json::from_str(json).unwrap();
 
     let current = response
@@ -30,8 +30,8 @@ fn parse_and_filter(json: &str, now: DateTime<Utc>) -> Vec<Game> {
                 .iter()
                 .flat_map(|offers| &offers.promotional_offers)
                 .any(|promotion| {
-                    promotion.start_date < now
-                        && now < promotion.end_date
+                    &promotion.start_date < now
+                        && now < &promotion.end_date
                         && promotion.discount_setting.discount_percentage == 0
                 }),
         })
@@ -116,7 +116,7 @@ mod tests {
     fn parse_and_filter_epic() {
         let result = parse_and_filter(
             include_str!("epic_response.json"),
-            Utc.timestamp(1631467068, 0),
+            &Utc.timestamp(1631467068, 0),
         );
 
         assert_eq!(

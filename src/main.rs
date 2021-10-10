@@ -75,15 +75,8 @@ fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output = ()>, u16) {
     info!("Config {:?}", config);
     info!("Starting..");
 
-    // todo figure all this out
-    let run_token = config.token.clone();
-    let test_token = config.token.clone();
-
-    let user_id = config.user_id.clone();
-    let channel_id = config.channel_id.clone();
-    let epic_base_url = Arc::new(config.epic_base_url.clone());
-    let discord_base_url = Arc::new(config.discord_base_url.clone());
-    let now = Arc::new(now);
+    let config: &'static Config = Box::leak(Box::new(config.clone()));
+    let now: &'static DateTime<Utc> = Box::leak(Box::new(now));
 
     let (tx, rx) = tokio::sync::oneshot::channel();
     let shutdown_hook = Arc::new(Mutex::new(Some(tx)));
@@ -93,66 +86,37 @@ fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output = ()>, u16) {
         "pong"
     });
 
-    let epic_base_url_clone = epic_base_url.clone();
-    let discord_base_url_clone = discord_base_url.clone();
-    let now_clone = now.clone();
-    let run = warp::path!("run").and_then(move || {
-        let token = run_token.clone();
-        let channel_id = channel_id.clone();
-        let epic_base_url = epic_base_url_clone.clone();
-        let discord_base_url_clone = discord_base_url_clone.clone();
-        let now_clone = now_clone.clone();
-        async move {
-            info!("run");
-            let free_games = epic_client::get_free_games(&epic_base_url, *now_clone).await;
-            info!("free games: {:?}", free_games);
-            discord::post_free_games_message(
-                &discord_base_url_clone,
-                free_games,
-                &token,
-                &channel_id,
-            )
-            .await;
-            Ok::<_, Rejection>(warp::reply())
-        }
+    let run = warp::path!("run").and_then(move || async move {
+        info!("run");
+        let free_games = epic_client::get_free_games(config.epic_base_url.as_str(), now).await;
+        discord::post_free_games_message(
+            config.discord_base_url.as_str(),
+            free_games,
+            config.token.as_str(),
+            config.channel_id.as_str(),
+        )
+        .await;
+        Ok::<_, Rejection>(warp::reply())
     });
 
-    let epic_base_url_clone = epic_base_url.clone();
-    let discord_base_url_clone = discord_base_url.clone();
-    let now_clone = now.clone();
-    let test = warp::path!("test").and_then(move || {
-        let token = test_token.clone();
-        let user_id = user_id.clone();
-        let epic_base_url = epic_base_url_clone.clone();
-        let discord_base_url_clone = discord_base_url_clone.clone();
-        let now_clone = now_clone.clone();
-        async move {
-            info!("run");
-            let free_games = epic_client::get_free_games(&epic_base_url, *now_clone).await;
-            info!("free games: {:?}", free_games);
-            discord::post_free_games_direct_message(
-                &discord_base_url_clone,
-                free_games,
-                &token,
-                &user_id,
-            )
-            .await;
-            Ok::<_, Rejection>(warp::reply())
-        }
+    let test = warp::path!("test").and_then(move || async move {
+        info!("run");
+        let free_games = epic_client::get_free_games(config.epic_base_url.as_str(), now).await;
+        discord::post_free_games_direct_message(
+            config.discord_base_url.as_str(),
+            free_games,
+            config.token.as_str(),
+            config.user_id.as_str(),
+        )
+        .await;
+        Ok::<_, Rejection>(warp::reply())
     });
 
-    let epic_base_url_clone = epic_base_url.clone();
-    let now_clone = now.clone();
-    let get = warp::path!("get").and_then(move || {
-        let epic_base_url = epic_base_url_clone.clone();
-        let now_clone = now_clone.clone();
-        async move {
-            info!("get");
-            let free_games = epic_client::get_free_games(&epic_base_url, *now_clone).await;
-            info!("free games: {:?}", free_games);
-            let free_games = serde_json::to_string(&free_games).expect("should work");
-            Ok::<_, Rejection>(free_games)
-        }
+    let get = warp::path!("get").and_then(move || async move {
+        info!("get");
+        let free_games = epic_client::get_free_games(config.epic_base_url.as_str(), now).await;
+        let free_games = serde_json::to_string(&free_games).expect("should work");
+        Ok::<_, Rejection>(free_games)
     });
 
     let shutdown = warp::path!("shutdown").map(move || {
