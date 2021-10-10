@@ -3,20 +3,18 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use reqwest::get;
 
-pub(crate) async fn get_free_games() -> Vec<Game> {
-    let response = get("https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions")
+pub(crate) async fn get_free_games(base_url: &str, now: DateTime<Utc>) -> Vec<Game> {
+    let response = get(format!("{}/freeGamesPromotions", base_url))
         .await
         .unwrap()
         .text()
         .await
         .unwrap();
-    parse_and_filter(response.as_str())
+    parse_and_filter(response.as_str(), now)
 }
 
-fn parse_and_filter(json: &str) -> Vec<Game> {
+fn parse_and_filter(json: &str, now: DateTime<Utc>) -> Vec<Game> {
     let response: Response = serde_json::from_str(json).unwrap();
-
-    let now = Utc::now(); // todo this breaks tests
 
     let current = response.data.catalog.search_store.elements.iter()
         .filter(|game|{
@@ -102,10 +100,11 @@ struct DiscountSetting {
 mod tests {
     use super::*;
     use crate::Platform;
+    use chrono::TimeZone;
 
     #[test]
     fn parse_and_filter_epic() {
-        let result = parse_and_filter(include_str!("epic_response.json"));
+        let result = parse_and_filter(include_str!("epic_response.json"), Utc.timestamp(1631467068, 0));
 
         assert_eq!(result, vec![
            Game {

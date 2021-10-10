@@ -24,7 +24,7 @@ struct Message {
     content: String,
 }
 
-pub(crate) async fn post_free_games_message(games: Vec<Game>, token: &str, channel_id: &str) {
+pub(crate) async fn post_free_games_message(base_url: &str, games: Vec<Game>, token: &str, channel_id: &str) {
     let games = games.into_iter()
         .map(|game|game.title)
         .collect::<Vec<String>>()
@@ -34,7 +34,7 @@ pub(crate) async fn post_free_games_message(games: Vec<Game>, token: &str, chann
     };
 
     let client = reqwest::Client::default();
-    let _res = client.post(format!("https://discordapp.com/api/channels/{channel_id}/messages", channel_id=channel_id))
+    let _res = client.post(format!("{base_url}/api/channels/{channel_id}/messages", base_url=base_url, channel_id=channel_id))
         .header("Authorization", format!("Bot {}", token))
         .header("Content-Type", "application/json")
         .body(serde_json::to_string(&body).unwrap())
@@ -46,7 +46,7 @@ pub(crate) async fn post_free_games_message(games: Vec<Game>, token: &str, chann
         .unwrap();
 }
 
-pub(crate) async fn post_free_games_direct_message(games: Vec<Game>, token: &str, user_id: &str) {
+pub(crate) async fn post_free_games_direct_message(base_url: &str, games: Vec<Game>, token: &str, user_id: &str) {
     let games = games.into_iter()
         .map(|game|game.title)
         .collect::<Vec<String>>()
@@ -57,7 +57,7 @@ pub(crate) async fn post_free_games_direct_message(games: Vec<Game>, token: &str
 
     let client = reqwest::Client::default();
 
-    let dm_channel:DmChannel = client.post("https://discordapp.com/api/users/@me/channels")
+    let dm_channel:DmChannel = client.post(format!("{base_url}/api/users/@me/channels", base_url=base_url))
         .header("Authorization", format!("Bot {}", token))
         .header("Content-Type", "application/json")
         .body(r#"{"recipient_id":"104179279658508288"}"#)
@@ -68,7 +68,7 @@ pub(crate) async fn post_free_games_direct_message(games: Vec<Game>, token: &str
         .await
         .unwrap();
 
-    let _res = client.post(format!("https://discordapp.com/api/channels/{channel_id}/messages", channel_id=dm_channel.id))
+    let _res = client.post(format!("{base_url}/api/channels/{channel_id}/messages", base_url=base_url, channel_id=dm_channel.id))
         .header("Authorization", format!("Bot {}", token))
         .header("Content-Type", "application/json")
         .body(serde_json::to_string(&body).unwrap())

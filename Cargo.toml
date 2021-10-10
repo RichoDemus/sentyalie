@@ -17,3 +17,8 @@ env_logger = "0.9.0"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
 version = "0.3"
+
+[dev-dependencies]
+httpmock = "0.6.2"
+mockito = "0.30.0"
+rand = "0.8.4"
