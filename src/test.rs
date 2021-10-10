@@ -14,12 +14,22 @@ mod tests {
         let config = Config {
             port: 0,
             channel_id: String::from("channel-id"),
+            user_id: String::from("user-id"),
+            token: String::from("token"),
             epic_base_url: server.base_url(),
             discord_base_url: server.base_url(),
             ..Default::default()
         };
         let (target, port) = run(config.clone(), Utc.timestamp(1631467068, 0));
         let server_handle = tokio::spawn(target);
+
+        let _epic_mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/freeGamesPromotions");
+            then.status(200)
+                .body(include_str!("epic_response.json"));
+        });
+
         (server_handle, server, Config {
             port,
             ..config
@@ -39,16 +49,11 @@ mod tests {
     async fn post_games_to_discord() {
         let (server_handle, server, config) = start_server();
 
-        let epic_mock = server.mock(|when, then| {
-            when.method(GET)
-                .path("/freeGamesPromotions");
-            then.status(200)
-                .body(include_str!("epic_response.json"));
-        });
-
         let discord_mock = server.mock(|when, then| {
             when.method(POST)
                 .path(format!("/api/channels/{channel_id}/messages", channel_id=config.channel_id))
+                .header("Content-Type", "application/json")
+                .header("Authorization", format!("Bot {}", config.token).as_str())
                 .body(r#"{"content":"Free games this week: Sheltered, Nioh: The Complete Edition"}"#);
             then.status(200);
         });
@@ -65,22 +70,20 @@ mod tests {
     async fn post_games_to_discord_private_message() {
         let (server_handle, server, config) = start_server();
 
-        let epic_mock = server.mock(|when, then| {
-            when.method(GET)
-                .path("/freeGamesPromotions");
-            then.status(200)
-                .body(include_str!("epic_response.json"));
-        });
-
         let discord_mock = server.mock(|when, then| {
             when.method(POST)
-                .path("/api/users/@me/channels");
+                .path("/api/users/@me/channels")
+                .header("Content-Type", "application/json")
+                .header("Authorization", format!("Bot {}", config.token).as_str())
+                .body(format!("{{\"recipient_id\":\"{}\"}}", config.user_id));
             then.status(200).body(r#"{"id":"cool-id"}"#);
         });
 
         let discord_mock2 = server.mock(|when, then| {
             when.method(POST)
                 .path("/api/channels/cool-id/messages")
+                .header("Content-Type", "application/json")
+                .header("Authorization", format!("Bot {}", config.token).as_str())
                 .body(r#"{"content":"Free games this week: Sheltered, Nioh: The Complete Edition"}"#);
             then.status(200);
         });

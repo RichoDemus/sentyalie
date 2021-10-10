@@ -60,7 +60,7 @@ pub(crate) async fn post_free_games_direct_message(base_url: &str, games: Vec<Ga
     let dm_channel:DmChannel = client.post(format!("{base_url}/api/users/@me/channels", base_url=base_url))
         .header("Authorization", format!("Bot {}", token))
         .header("Content-Type", "application/json")
-        .body(r#"{"recipient_id":"104179279658508288"}"#)
+        .body(format!("{{\"recipient_id\":\"{}\"}}", user_id))
         .send()
         .await
         .unwrap()
