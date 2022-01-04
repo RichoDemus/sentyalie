@@ -89,9 +89,21 @@ fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output = ()>, u16) {
     let run = warp::path!("run").and_then(move || async move {
         info!("run");
         let free_games = epic_client::get_free_games(config.epic_base_url.as_str(), now).await;
+        let last_message = discord::get_last_posted_message(
+            config.discord_base_url.as_str(),
+            config.token.as_str(),
+            config.channel_id.as_str(),
+        )
+        .await;
+        info!("Last posted message: {}", last_message);
+        let new_message = discord::create_message(free_games.as_slice());
+        if last_message == new_message {
+            info!("Equal messages, not posting: {}", last_message);
+            return Ok::<_, Rejection>(warp::reply());
+        }
         discord::post_free_games_message(
             config.discord_base_url.as_str(),
-            free_games,
+            new_message,
             config.token.as_str(),
             config.channel_id.as_str(),
         )
@@ -102,9 +114,21 @@ fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output = ()>, u16) {
     let test = warp::path!("test").and_then(move || async move {
         info!("run");
         let free_games = epic_client::get_free_games(config.epic_base_url.as_str(), now).await;
+        let last_message = discord::get_last_posted_message(
+            config.discord_base_url.as_str(),
+            config.token.as_str(),
+            config.channel_id.as_str(),
+        )
+        .await;
+        info!("Last posted message: {}", last_message);
+        let new_message = discord::create_message(free_games.as_slice());
+        if last_message == new_message {
+            info!("Equal messages, not posting: {}", last_message);
+            return Ok::<_, Rejection>(warp::reply());
+        }
         discord::post_free_games_direct_message(
             config.discord_base_url.as_str(),
-            free_games,
+            new_message,
             config.token.as_str(),
             config.user_id.as_str(),
         )

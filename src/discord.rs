@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::Game;
@@ -20,24 +22,60 @@ struct DmChannel {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct PostMessage {
+    content: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct Message {
     content: String,
+    timestamp: DateTime<Utc>,
+    author: Author,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Author {
+    username: String,
+}
+
+pub(crate) async fn get_last_posted_message(
+    base_url: &str,
+    token: &str,
+    channel_id: &str,
+) -> String {
+    let client = reqwest::Client::default();
+    let res = client
+        .get(format!(
+            "{base_url}/api/channels/{channel_id}/messages",
+            base_url = base_url,
+            channel_id = channel_id
+        ))
+        .header("Authorization", format!("Bot {}", token))
+        .header("Content-Type", "application/json")
+        .send()
+        .await
+        .unwrap();
+    info!("headers: {:?}", res.headers());
+    let json = res.text().await.unwrap();
+    info!("res: {}", json);
+    let parsed: Vec<Message> = serde_json::from_str(json.as_str()).unwrap();
+    info!("parsed: {:?}", parsed);
+
+    parsed
+        .into_iter()
+        .filter(|msg| msg.author.username == "free-game-announcer")
+        .max_by_key(|msg| msg.timestamp)
+        .expect("Didn't find a previous message")
+        .content
 }
 
 pub(crate) async fn post_free_games_message(
     base_url: &str,
-    games: Vec<Game>,
+    content: String,
     token: &str,
     channel_id: &str,
 ) {
-    let games = games
-        .into_iter()
-        .map(|game| game.title)
-        .collect::<Vec<String>>()
-        .join(", ");
-    let body = Message {
-        content: format!("Free games this week: {}", games),
-    };
+    let body = PostMessage { content };
 
     let client = reqwest::Client::default();
     let _res = client
@@ -57,20 +95,23 @@ pub(crate) async fn post_free_games_message(
         .unwrap();
 }
 
+pub(crate) fn create_message(games: &[Game]) -> String {
+    let games = games
+        .iter()
+        .map(|game| game.title.clone()) // todo don't clone
+        .collect::<Vec<String>>()
+        .join(", ");
+    let message = format!("Free games this week: {}", games);
+    message
+}
+
 pub(crate) async fn post_free_games_direct_message(
     base_url: &str,
-    games: Vec<Game>,
+    content: String,
     token: &str,
     user_id: &str,
 ) {
-    let games = games
-        .into_iter()
-        .map(|game| game.title)
-        .collect::<Vec<String>>()
-        .join(", ");
-    let body = Message {
-        content: format!("Free games this week: {}", games),
-    };
+    let body = PostMessage { content };
 
     let client = reqwest::Client::default();
 
