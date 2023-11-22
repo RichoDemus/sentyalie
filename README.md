@@ -7,5 +7,9 @@ https://discord.com/api/oauth2/authorize?client_id=888455645681045604&scope=bot&
 
 ## manually trigger bot once:
 ```
-curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" https://sentyal7j3dfx7ra-uc.a.run.app/get
+curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" https://sentyalie-c7j3dfx7ra-uc.a.run.app/get
 ```
+
+## deploying
+1. just push, GH action will create and upload container
+2. go to https://console.cloud.google.com/run and deploy a new revision
