@@ -116,7 +116,7 @@ pub(crate) async fn post_free_games_direct_message(
     let body = PostMessage { content };
 
     let client = reqwest::Client::default();
-
+    info!("Posting private message");
     let dm_channel: DmChannel = client
         .post(format!(
             "{base_url}/api/users/@me/channels",

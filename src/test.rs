@@ -3,6 +3,8 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use httpmock::prelude::*;
     use log::LevelFilter;
+    use std::env;
+    use tokio::spawn;
     use tokio::task::JoinHandle;
 
     use crate::{run, Config};
@@ -141,5 +143,38 @@ mod tests {
         .await
         .unwrap();
         server_handle.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn live_test() {
+        let _ = env_logger::builder()
+            .filter_module("sentyalie", LevelFilter::Info)
+            .try_init();
+
+        if env::var("DISCORD_TOKEN").is_err() {
+            return;
+        }
+
+        let config = Config {
+            token: env::var("DISCORD_TOKEN").unwrap(),
+            channel_id: env::var("DISCORD_CHANNEL").unwrap(),
+            user_id: env::var("DISCORD_TEST_USER").unwrap(),
+            port: 8081,
+            ..Default::default()
+        };
+        let (server, _) = run(config.clone(), Utc::now());
+        spawn(server);
+
+        let response = reqwest::get(format!("http://localhost:{port}/test", port = config.port))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+
+        reqwest::get(format!(
+            "http://localhost:{port}/shutdown",
+            port = config.port
+        ))
+        .await
+        .unwrap();
     }
 }

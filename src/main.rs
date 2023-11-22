@@ -115,7 +115,7 @@ fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output = ()>, u16) {
     });
 
     let test = warp::path!("test").and_then(move || async move {
-        info!("run");
+        info!("test");
         let free_games = epic_client::get_free_games(config.epic_base_url.as_str(), now).await;
         let last_message = discord::get_last_posted_message(
             config.discord_base_url.as_str(),

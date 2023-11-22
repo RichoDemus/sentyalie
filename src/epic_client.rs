@@ -1,4 +1,5 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
+use log::error;
 use reqwest::get;
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +16,15 @@ pub(crate) async fn get_free_games(base_url: &str, now: &DateTime<Utc>) -> Vec<G
 }
 
 fn parse_and_filter(json: &str, now: &DateTime<Utc>) -> Vec<Game> {
-    let response: Response = serde_json::from_str(json).unwrap();
+    let response = serde_json::from_str::<Response>(json);
+
+    let response = match response {
+        Ok(r) => r,
+        Err(e) => {
+            error!("Failed to parse, {e:?}\n{json}");
+            panic!("Failed to parse epic response. {e:?}\n{json}");
+        }
+    };
 
     response
         .data
@@ -31,7 +40,7 @@ fn parse_and_filter(json: &str, now: &DateTime<Utc>) -> Vec<Game> {
                 .flat_map(|offers| &offers.promotional_offers)
                 .any(|promotion| {
                     &promotion.start_date < now
-                        && now < &promotion.end_date
+                        && now < &promotion.end_date.unwrap_or(*now + Duration::days(300))
                         && promotion.discount_setting.discount_percentage == 0
                 }),
         })
@@ -89,7 +98,7 @@ struct PromotionalOffer {
     #[serde(rename = "startDate")]
     start_date: DateTime<Utc>,
     #[serde(rename = "endDate")]
-    end_date: DateTime<Utc>,
+    end_date: Option<DateTime<Utc>>,
     #[serde(rename = "discountSetting")]
     discount_setting: DiscountSetting,
 }
