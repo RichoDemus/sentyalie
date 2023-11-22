@@ -95,12 +95,15 @@ fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output = ()>, u16) {
             config.channel_id.as_str(),
         )
         .await;
-        info!("Last posted message: {}", last_message);
+        info!("Last posted message: {:?}", last_message);
         let new_message = discord::create_message(free_games.as_slice());
-        if last_message == new_message {
-            info!("Equal messages, not posting: {}", last_message);
-            return Ok::<_, Rejection>(warp::reply());
+        if let Some(last_message) = last_message {
+            if last_message == new_message {
+                info!("Equal messages, not posting: {}", last_message);
+                return Ok::<_, Rejection>(warp::reply());
+            }
         }
+
         discord::post_free_games_message(
             config.discord_base_url.as_str(),
             new_message,
@@ -120,11 +123,13 @@ fn run(config: Config, now: DateTime<Utc>) -> (impl Future<Output = ()>, u16) {
             config.channel_id.as_str(),
         )
         .await;
-        info!("Last posted message: {}", last_message);
+        info!("Last posted message: {:?}", last_message);
         let new_message = discord::create_message(free_games.as_slice());
-        if last_message == new_message {
-            info!("Equal messages, not posting: {}", last_message);
-            return Ok::<_, Rejection>(warp::reply());
+        if let Some(last_message) = last_message {
+            if last_message == new_message {
+                info!("Equal messages, not posting: {}", last_message);
+                return Ok::<_, Rejection>(warp::reply());
+            }
         }
         discord::post_free_games_direct_message(
             config.discord_base_url.as_str(),

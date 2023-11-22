@@ -13,12 +13,12 @@ chrono = { version = "*", features = ["serde"]}
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
 log = "0.4.14"
-env_logger = "0.9.0"
+env_logger = "0.10"
 
 [target.'cfg(all(target_env = "musl", target_pointer_width = "64"))'.dependencies.jemallocator]
-version = "0.3"
+version = "0.5"
 
 [dev-dependencies]
 httpmock = "0.6.2"
-mockito = "0.30.0"
+mockito = "1.2.0"
 rand = "0.8.4"

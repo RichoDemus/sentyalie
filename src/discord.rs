@@ -42,19 +42,22 @@ pub(crate) async fn get_last_posted_message(
     base_url: &str,
     token: &str,
     channel_id: &str,
-) -> String {
+) -> Option<String> {
     let client = reqwest::Client::default();
+    let url = format!(
+        "{base_url}/api/channels/{channel_id}/messages",
+        base_url = base_url,
+        channel_id = channel_id
+    );
+    info!("Url: {url}");
     let res = client
-        .get(format!(
-            "{base_url}/api/channels/{channel_id}/messages",
-            base_url = base_url,
-            channel_id = channel_id
-        ))
+        .get(url)
         .header("Authorization", format!("Bot {}", token))
         .header("Content-Type", "application/json")
         .send()
         .await
         .unwrap();
+
     info!("headers: {:?}", res.headers());
     let json = res.text().await.unwrap();
     info!("res: {}", json);
@@ -65,8 +68,7 @@ pub(crate) async fn get_last_posted_message(
         .into_iter()
         .filter(|msg| msg.author.username == "free-game-announcer")
         .max_by_key(|msg| msg.timestamp)
-        .expect("Didn't find a previous message")
-        .content
+        .map(|msg| msg.content)
 }
 
 pub(crate) async fn post_free_games_message(

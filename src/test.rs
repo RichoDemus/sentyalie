@@ -2,6 +2,7 @@
 mod tests {
     use chrono::{TimeZone, Utc};
     use httpmock::prelude::*;
+    use log::LevelFilter;
     use tokio::task::JoinHandle;
 
     use crate::{run, Config};
@@ -31,6 +32,9 @@ mod tests {
 
     #[tokio::test]
     async fn start_and_shutdown() {
+        let _ = env_logger::builder()
+            .filter_module("sentyalie", LevelFilter::Info)
+            .try_init();
         let (server_handle, _, config) = start_server();
 
         reqwest::get(format!(
@@ -45,6 +49,9 @@ mod tests {
 
     #[tokio::test]
     async fn post_games_to_discord() {
+        let _ = env_logger::builder()
+            .filter_module("sentyalie", LevelFilter::Info)
+            .try_init();
         let (server_handle, server, config) = start_server();
 
         let discord_mock = server.mock(|when, then| {
@@ -59,6 +66,14 @@ mod tests {
                     r#"{"content":"Free games this week: Sheltered, Nioh: The Complete Edition"}"#,
                 );
             then.status(200);
+        });
+
+        let discord_mock3 = server.mock(|when, then| {
+            when.method(GET)
+                .path("/api/channels/channel-id/messages")
+                .header("Content-Type", "application/json")
+                .header("Authorization", format!("Bot {}", config.token).as_str());
+            then.status(200).body(r#"[]"#);
         });
 
         let response = reqwest::get(format!("http://localhost:{port}/run", port = config.port))
@@ -79,6 +94,9 @@ mod tests {
 
     #[tokio::test]
     async fn post_games_to_discord_private_message() {
+        let _ = env_logger::builder()
+            .filter_module("sentyalie", LevelFilter::Info)
+            .try_init();
         let (server_handle, server, config) = start_server();
 
         let _discord_mock = server.mock(|when, then| {
@@ -99,6 +117,14 @@ mod tests {
                     r#"{"content":"Free games this week: Sheltered, Nioh: The Complete Edition"}"#,
                 );
             then.status(200);
+        });
+
+        let discord_mock3 = server.mock(|when, then| {
+            when.method(GET)
+                .path("/api/channels/channel-id/messages")
+                .header("Content-Type", "application/json")
+                .header("Authorization", format!("Bot {}", config.token).as_str());
+            then.status(200).body(r#"[]"#);
         });
 
         let response = reqwest::get(format!("http://localhost:{port}/test", port = config.port))
